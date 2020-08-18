@@ -1,118 +1,62 @@
 package com.example.mybackgroundprocess
 
-import android.os.AsyncTask
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
+import android.os.IBinder
+import android.view.View
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.*
-import java.lang.Exception
-import java.lang.ref.WeakReference
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), View.OnClickListener {
 
-    companion object {
-        private val LOG_ASYNC = "DemoAsync"
-        private const val INPUT_STRING = "Halo Ini Demo AsyncTask!!"
+    private var serviceBound = false
+    private lateinit var boundService: MyBoundService
+
+    private val serviceConnection = object: ServiceConnection {
+        override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
+            val binder = p1 as MyBoundService.MyBinder
+            boundService = binder.getService
+            serviceBound = true
+        }
+
+        override fun onServiceDisconnected(p0: ComponentName?) {
+            serviceBound = false
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        status.setText(R.string.status_pre)
-        desc.text = INPUT_STRING
+        btn_start_service.setOnClickListener(this)
+        btn_start_intent_service.setOnClickListener(this)
+        btn_start_bound_service.setOnClickListener(this)
+        btn_stop_bound_service.setOnClickListener(this)
+    }
 
-        GlobalScope.launch(Dispatchers.Default) {
-            var output: String? = null
-            Log.d(LOG_ASYNC, "status: doInBackground")
+    override fun onDestroy() {
+        super.onDestroy()
+        if(serviceBound) unbindService(serviceConnection)
+    }
 
-            try {
-                output = "$INPUT_STRING selamat belajar!!"
-
-                delay(5000)
-
-                withContext(Dispatchers.Main) {
-                    status.setText(R.string.status_post)
-                    desc.text = output
-                }
-            } catch (e: Exception) {
-                Log.d(LOG_ASYNC, e.message.toString())
+    override fun onClick(v: View) {
+        when(v.id) {
+            R.id.btn_start_service -> startService(Intent(this@MainActivity, MyService::class.java))
+            R.id.btn_start_intent_service -> {
+                val intentService = Intent(this, MyIntentService::class.java)
+                intentService.putExtra(MyIntentService.EXTRA_DURATION, 5000L)
+                startService(intentService)
+            }
+            R.id.btn_start_bound_service -> {
+                val boundServiceIntent = Intent(this, MyBoundService::class.java)
+                bindService(boundServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+            }
+            R.id.btn_stop_bound_service -> {
+                unbindService(serviceConnection)
             }
         }
     }
 }
-
-//class MainActivity : AppCompatActivity(), MyAsyncCallback {
-//
-//    companion object {
-//        private const val INPUT_STRING = "Halo Ini Demo AsyncTask!!"
-//    }
-//
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        setContentView(R.layout.activity_main)
-//
-//        val demoAsync = DemoAsync(this)
-//        demoAsync.execute(INPUT_STRING)
-//    }
-//
-//
-//    override fun onPreExecute() {
-//        status.setText(R.string.status_pre)
-//        desc.text = INPUT_STRING
-//    }
-//
-//    override fun onPostExecute(result: String) {
-//        status.setText(R.string.status_post)
-//        desc.text = result
-//    }
-//
-//    private class DemoAsync(listener: MyAsyncCallback) : AsyncTask<String, Void, String>() {
-//
-//        private val myListener: WeakReference<MyAsyncCallback>
-//        init {
-//            this.myListener = WeakReference(listener)
-//        }
-//
-//        companion object {
-//            private val LOG_ASYNC = "DemoAsync"
-//        }
-//
-//        override fun onPreExecute() {
-//            super.onPreExecute()
-//            Log.d(LOG_ASYNC, "status : onPreExecute")
-//
-//            myListener.get()?.onPreExecute()
-//        }
-//
-//        override fun doInBackground(vararg params: String?): String {
-//            Log.d(LOG_ASYNC, "status : doInBackground")
-//
-//            var output: String? = null
-//
-//            try {
-//                val input = params[0]
-//                output = "$input Selamat Belajar!!"
-//                Thread.sleep(2000)
-//
-//            } catch (e: Exception) {
-//                Log.d(LOG_ASYNC, e.message.toString())
-//            }
-//
-//            return output.toString()
-//        }
-//
-//        override fun onPostExecute(result: String) {
-//            super.onPostExecute(result)
-//            Log.d(LOG_ASYNC, "status : onPostExecute")
-//
-//            myListener.get()?.onPostExecute(result)
-//        }
-//    }
-//}
-//
-//internal interface MyAsyncCallback {
-//    fun onPreExecute()
-//    fun onPostExecute(text: String)
-//}
